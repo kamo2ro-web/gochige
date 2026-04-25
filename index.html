@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+content="width=device-width,initial-scale=1">
 
-<title>SameGame Plus</title>
+<title>Gochi-Game Touch Deluxe</title>
 
 <style>
 body{
-background:white;
+background:#fff;
 color:#222;
 text-align:center;
 font-family:sans-serif;
@@ -19,7 +19,7 @@ canvas{
 border:1px solid #888;
 width:min(92vw,600px);
 height:auto;
-
+touch-action:manipulation;
 margin-top:10px;
 }
 
@@ -42,7 +42,7 @@ color:#cc8800;
 </head>
 <body>
 
-<h1>Gochi-Game</h1>
+<h1>SameGame</h1>
 
 <div id="ui">
 Score:
@@ -69,19 +69,22 @@ const CELL=30;
 
 const canvas=
 document.getElementById("game");
-
 const ctx=
 canvas.getContext("2d");
 
 let grid=[];
+
 let score=0;
 let gameOver=false;
 
-let hoverX=-1;
-let hoverY=-1;
-
 let popups=[];
 let particles=[];
+
+let selectedGroup=null;
+
+let touchStartX=0;
+let touchStartY=0;
+let moved=false;
 
 const bg=new Image();
 bg.src="background.png";
@@ -112,6 +115,7 @@ function startGame(){
 
 score=0;
 gameOver=false;
+selectedGroup=null;
 
 document.getElementById(
 "score"
@@ -151,8 +155,6 @@ ctx.clearRect(
 0,0,300,300
 );
 
-
-/* 背景 */
 ctx.drawImage(
 bg,
 0,0,
@@ -161,7 +163,6 @@ bg,
 
 
 
-/* ブロック */
 for(let y=0;y<SIZE;y++){
 for(let x=0;x<SIZE;x++){
 
@@ -171,13 +172,28 @@ if(v===null) continue;
 let px=x*CELL;
 let py=y*CELL;
 
+let selected=
+selectedGroup &&
+selectedGroup.some(
+g=>
+g[0]==x &&
+g[1]==y
+);
 
-/* ホバー浮く */
-if(
-x===hoverX &&
-y===hoverY
-){
-py-=4;
+/* 選択中グループ浮く */
+if(selected){
+px-=2;
+py-=2;
+
+ctx.drawImage(
+images[v],
+px,
+py,
+CELL+4,
+CELL+4
+);
+
+continue;
 }
 
 ctx.drawImage(
@@ -192,8 +208,28 @@ CELL
 }
 
 
+/* 選択枠 */
+if(selectedGroup){
 
-/* 消去パーティクル */
+ctx.strokeStyle="gold";
+ctx.lineWidth=3;
+
+for(let g of selectedGroup){
+
+ctx.strokeRect(
+g[0]*CELL+2,
+g[1]*CELL+2,
+CELL-4,
+CELL-4
+);
+
+}
+
+}
+
+
+
+/* 消去アニメ */
 for(
 let i=particles.length-1;
 i>=0;
@@ -216,12 +252,14 @@ CELL*(p.life/30)
 ctx.globalAlpha=1;
 
 p.life--;
+
 p.x+=p.vx;
 p.y+=p.vy;
 
-if(p.life<=0){
+if(
+p.life<=0
+)
 particles.splice(i,1);
-}
 
 }
 
@@ -255,9 +293,7 @@ popups.splice(i,1);
 
 }
 
-requestAnimationFrame(
-draw
-);
+requestAnimationFrame(draw);
 
 }
 
@@ -278,9 +314,7 @@ life:45
 
 function explode(group,color){
 
-for(
-let g of group
-){
+for(let g of group){
 
 particles.push({
 
@@ -385,6 +419,34 @@ return r;
 
 
 
+function sameGroup(a,b){
+
+if(!a||!b)
+return false;
+
+if(
+a.length!==b.length
+)
+return false;
+
+for(
+let i=0;
+i<a.length;
+i++
+){
+if(
+a[i][0]!==b[i][0]||
+a[i][1]!==b[i][1]
+)
+return false;
+}
+
+return true;
+
+}
+
+
+
 function drop(){
 
 for(let x=0;x<SIZE;x++){
@@ -424,13 +486,17 @@ function shiftLeft(){
 let cols=[];
 
 for(
-let x=0;x<SIZE;x++
+let x=0;
+x<SIZE;
+x++
 ){
 
 let c=[];
 
 for(
-let y=0;y<SIZE;y++
+let y=0;
+y<SIZE;
+y++
 ){
 c.push(
 grid[y][x]
@@ -473,14 +539,10 @@ cols[x][y];
 function hasMoves(){
 
 for(
-let y=0;
-y<SIZE;
-y++
+let y=0;y<SIZE;y++
 ){
 for(
-let x=0;
-x<SIZE;
-x++
+let x=0;x<SIZE;x++
 ){
 
 let v=grid[y][x];
@@ -528,9 +590,7 @@ document.getElementById(
 "GAME OVER";
 
 setTimeout(
-()=>{
-startGame();
-},
+startGame,
 1800
 );
 
@@ -538,59 +598,31 @@ startGame();
 
 
 
-canvas.addEventListener(
-"mousemove",
-e=>{
+function handleTap(e){
+
+if(moved) return;
+if(gameOver) return;
+
 
 let r=
 canvas.getBoundingClientRect();
 
-hoverX=
-Math.floor(
-(e.clientX-r.left)
+let scaleX=
+canvas.width/r.width;
+
+let scaleY=
+canvas.height/r.height;
+
+
+let x=Math.floor(
+((e.clientX-r.left)
+*scaleX)
 /CELL
 );
 
-hoverY=
-Math.floor(
-(e.clientY-r.top)
-/CELL
-);
-
-}
-);
-
-
-
-canvas.addEventListener(
-"mouseleave",
-()=>{
-hoverX=-1;
-hoverY=-1;
-}
-);
-
-
-
-canvas.addEventListener(
-"click",
-e=>{
-
-if(gameOver)
-return;
-
-let r=
-canvas.getBoundingClientRect();
-
-let x=
-Math.floor(
-(e.clientX-r.left)
-/CELL
-);
-
-let y=
-Math.floor(
-(e.clientY-r.top)
+let y=Math.floor(
+((e.clientY-r.top)
+*scaleY)
 /CELL
 );
 
@@ -598,12 +630,15 @@ if(
 grid[y][x]===null
 )return;
 
+
+
 let visited=
 Array.from(
 {length:SIZE},
 ()=>Array(SIZE)
 .fill(false)
 );
+
 
 let group=
 floodFill(
@@ -614,8 +649,28 @@ visited
 
 if(
 group.length<2
-)return;
+){
+selectedGroup=null;
+return;
+}
 
+
+
+/* 一回目選択 */
+if(
+!sameGroup(
+selectedGroup,
+group
+)
+){
+
+selectedGroup=group;
+return;
+}
+
+
+/* 二回目で消す */
+selectedGroup=null;
 
 
 let points=
@@ -631,38 +686,28 @@ x*CELL+10,
 y*CELL+20
 );
 
-
-
 explode(
 group,
 grid[y][x]
 );
 
-
-
 sound.currentTime=0;
 sound.play();
-
-
 
 group.forEach(
 ([gx,gy])=>
 grid[gy][gx]=null
 );
 
-
 drop();
 shiftLeft();
-
 
 
 if(
 allClear()
 ){
 
-updateScore(
-1000
-);
+updateScore(1000);
 
 document.getElementById(
 "message"
@@ -675,8 +720,8 @@ startGame,
 );
 
 return;
-}
 
+}
 
 
 if(
@@ -685,8 +730,43 @@ if(
 endGame();
 
 }
+
+
+
+canvas.addEventListener(
+"pointerdown",
+e=>{
+touchStartX=e.clientX;
+touchStartY=e.clientY;
+moved=false;
+}
 );
 
+
+canvas.addEventListener(
+"pointermove",
+e=>{
+
+if(
+Math.abs(
+e.clientX-touchStartX
+)>10 ||
+
+Math.abs(
+e.clientY-touchStartY
+)>10
+){
+moved=true;
+}
+
+}
+);
+
+
+canvas.addEventListener(
+"pointerup",
+handleTap
+);
 
 
 bg.onload=()=>{
